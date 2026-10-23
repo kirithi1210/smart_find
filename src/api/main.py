@@ -1,7 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
-from typing import Optional
 import shutil
 import os
 import time
@@ -28,22 +27,15 @@ async def root():
 @app.post("/reports/found")
 async def report_found_item(
     description: str = Form(...),
-    image: Optional[UploadFile] = File(None)
+    image: UploadFile = File(...)
 ):
-    start_time = time.time()
-    
-    # Conditional processing based on whether an image was provided
-    if image is not None:
-        file_path = f"static/uploads/found_{datetime.now().timestamp()}_{image.filename}"
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-        # Generate multimodal embedding
-        embedding = clip_embedder.get_multimodal_embedding(description, file_path)
-    else:
-        file_path = None
-        # Generate text-only embedding
-        embedding = clip_embedder.get_text_embedding(description)
+    file_path = f"static/uploads/found_{datetime.now().timestamp()}_{image.filename}"
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(image.file, buffer)
 
+    # Benchmark CLIP Embedding Latency
+    start_time = time.time()
+    embedding = clip_embedder.get_multimodal_embedding(description, file_path)
     inference_time_ms = round((time.time() - start_time) * 1000, 2)
 
     found_doc = {
@@ -67,22 +59,15 @@ async def report_found_item(
 @app.post("/reports/lost")
 async def report_lost_item(
     description: str = Form(...),
-    image: Optional[UploadFile] = File(None)
+    image: UploadFile = File(...)
 ):
-    start_time = time.time()
-    
-    # Conditional processing based on whether an image was provided
-    if image is not None:
-        file_path = f"static/uploads/lost_{datetime.now().timestamp()}_{image.filename}"
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-        # Generate multimodal embedding
-        embedding = clip_embedder.get_multimodal_embedding(description, file_path)
-    else:
-        file_path = None
-        # Generate text-only embedding
-        embedding = clip_embedder.get_text_embedding(description)
+    file_path = f"static/uploads/lost_{datetime.now().timestamp()}_{image.filename}"
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(image.file, buffer)
 
+    # Benchmark CLIP Embedding Latency
+    start_time = time.time()
+    embedding = clip_embedder.get_multimodal_embedding(description, file_path)
     inference_time_ms = round((time.time() - start_time) * 1000, 2)
 
     lost_doc = {
@@ -114,4 +99,4 @@ async def report_lost_item(
         "status": "success",
         "lost_report_id": str(result.inserted_id),
         "top_5_matches": top_matches
-    }
+    } 
