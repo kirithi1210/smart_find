@@ -1,33 +1,39 @@
-from sentence_transformers import SentenceTransformer
+import torch
+import clip
 from PIL import Image
-import numpy as np
-from typing import Union, List
+from typing import List, Union
 
-class CLIPEmbeddingModel:
-    def __init__(self, model_name: str = "clip-ViT-B-32"):
-        self.model = SentenceTransformer(model_name)
+class CLIPEmbedder:
+    def __init__(self):
+        self.model = None
+        self.preprocess = None
+        self.device = "cpu"
+
+    def _load_model(self):
+        if self.model is None:
+            # Loads model into memory only when inference is requested
+            self.model, self.preprocess = clip.load("ViT-B/32", device=self.device)
 
     def get_text_embedding(self, text: str) -> List[float]:
-        embedding = self.model.encode(text, convert_to_numpy=True)
-        norm_embedding = embedding / np.linalg.norm(embedding)
-        return norm_embedding.tolist()
+        self._load_model()
+        text_inputs = clip.tokenize([text]).to(self.device)
+        with torch.no-grad():
+            text_features = self.model.encode_text(text_inputs)
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+        return text_features.cpu().numpy()[0].tolist()
 
     def get_image_embedding(self, image_input: Union[str, Image.Image]) -> List[float]:
+        self._load_model()
         if isinstance(image_input, str):
             image = Image.open(image_input).convert("RGB")
         else:
             image = image_input.convert("RGB")
+            
+        image_tensor = self.preprocess(image).unsqueeze(0).to(self.device)
+        with torch.no-grad():
+            image_features = self.model.encode_image(image_tensor)
+            image_features /= image_features.norm(dim=-1, keepdim=True)
+        return image_features.cpu().numpy()[0].tolist()
 
-        embedding = self.model.encode(image, convert_to_numpy=True)
-        norm_embedding = embedding / np.linalg.norm(embedding)
-        return norm_embedding.tolist()
-
-    def get_multimodal_embedding(self, text: str, image_input: Union[str, Image.Image]) -> List[float]:
-        text_emb = np.array(self.get_text_embedding(text))
-        img_emb = np.array(self.get_image_embedding(image_input))
-        
-        combined_emb = (text_emb + img_emb) / 2.0
-        norm_combined = combined_emb / np.linalg.norm(combined_emb)
-        return norm_combined.tolist()
-
-clip_embedder = CLIPEmbeddingModel() 
+# Singleton instance
+clip_embedder = CLIPEmbedder()
