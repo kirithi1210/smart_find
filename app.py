@@ -3,8 +3,6 @@ import requests
 from PIL import Image
 
 # API Endpoint Configuration
-# API Endpoint Configuration
-# API Endpoint Configuration
 API_URL = "https://smart-find.onrender.com"
 
 st.set_page_config(
@@ -14,7 +12,7 @@ st.set_page_config(
 )
 
 st.title("🔍 SmartFind MLOps - Lost & Found Matcher")
-st.markdown("Powered by **FastAPI**, **CLIP Multimodal Embeddings**, **MongoDB**, and **MLflow**.")
+st.markdown("Powered by **FastAPI**, **Jina AI Multimodal Embeddings**, **MongoDB**, and **MLflow**.")
 
 # Sidebar Navigation
 option = st.sidebar.selectbox(
@@ -27,20 +25,23 @@ option = st.sidebar.selectbox(
 # ---------------------------------------------------------
 if option == "Report Found Item":
     st.subheader("📦 Report a Found Item")
-    st.write("Upload an image and description of the item you found.")
+    st.write("Provide a description and an optional image of the item you found.")
 
     with st.form("found_form", clear_on_submit=True):
-        description = st.text_area("Item Description", placeholder="e.g., Found a navy blue leather wallet near library...")
-        uploaded_file = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png"])
+        description = st.text_area("Item Description (Required)", placeholder="e.g., Found a navy blue leather wallet near library...")
+        uploaded_file = st.file_uploader("Upload Image (Optional)", type=["jpg", "jpeg", "png"])
         submit_btn = st.form_submit_button("Submit Found Report")
 
     if submit_btn:
-        if not description or not uploaded_file:
-            st.warning("Please provide both a description and an image.")
+        if not description:
+            st.warning("Please provide a description.")
         else:
-            with st.spinner("Extracting CLIP embeddings and indexing into MongoDB..."):
-                files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+            with st.spinner("Extracting embeddings and indexing into MongoDB..."):
                 data = {"description": description}
+                files = None
+                
+                if uploaded_file is not None:
+                    files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                 
                 try:
                     response = requests.post(f"{API_URL}/reports/found", data=data, files=files)
@@ -63,22 +64,28 @@ elif option == "Report Lost Item & Search Matches":
 
     with col1:
         with st.form("lost_form"):
-            description = st.text_area("Lost Item Description", placeholder="e.g., Lost my blue wallet containing cards...")
-            uploaded_file = st.file_uploader("Upload Image (or similar reference)", type=["jpg", "jpeg", "png"])
+            description = st.text_area("Lost Item Description (Required)", placeholder="e.g., Lost my blue wallet containing cards...")
+            uploaded_file = st.file_uploader("Upload Image (Optional)", type=["jpg", "jpeg", "png"])
             search_btn = st.form_submit_button("Search Matching Found Items")
 
     if search_btn:
-        if not description or not uploaded_file:
-            st.warning("Please provide both a description and an image.")
+        if not description:
+            st.warning("Please provide a description.")
         else:
             with col2:
                 st.markdown("### Query Preview")
-                image = Image.open(uploaded_file)
-                st.image(image, caption="Uploaded Lost Item Image", width=250)
+                if uploaded_file is not None:
+                    image = Image.open(uploaded_file)
+                    st.image(image, caption="Uploaded Lost Item Image", width=250)
+                else:
+                    st.info("Text-only search query.")
 
             with st.spinner("Generating embeddings & computing cosine similarity..."):
-                files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
                 data = {"description": description}
+                files = None
+                
+                if uploaded_file is not None:
+                    files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
 
                 try:
                     response = requests.post(f"{API_URL}/reports/lost", data=data, files=files)
@@ -97,15 +104,18 @@ elif option == "Report Lost Item & Search Matches":
                                     m_col1, m_col2 = st.columns([1, 3])
                                     
                                     with m_col1:
-                                        # Construct URL to access static upload image from FastAPI
-                                        img_path = match.get("image_path", "")
-                                        st.image(f"{API_URL}/{img_path}", width=150)
+                                        img_path = match.get("image_path")
+                                        if img_path:
+                                            # Construct URL to access static upload image from FastAPI
+                                            st.image(f"{API_URL}/{img_path}", width=150)
+                                        else:
+                                            st.info("No image provided")
 
                                     with m_col2:
                                         st.markdown(f"#### Match #{idx} — Score: **{match.get('similarity_score')}%**")
                                         st.write(f"**Description:** {match.get('description')}")
                                         st.caption(f"Report ID: `{match.get('id')}` | Reported At: {match.get('created_at')}")
-                                    st.markdown("---")
+                                st.markdown("---")
                     else:
                         st.error(f"Error searching matches. Backend status: {response.status_code}")
                 except Exception as e:
