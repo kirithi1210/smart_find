@@ -1,12 +1,11 @@
 import os
 import mlflow
 
-# Use a local directory for Render, or read from .env for local development
-TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "file:///app/mlruns")
+# Use a SQLite database backend instead of the deprecated file store
+TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
 mlflow.set_tracking_uri(TRACKING_URI)
 
 mlflow.set_experiment("smartfind_embeddings_and_matching")
-
 def log_inference_event(
     event_type: str, 
     description: str, 
