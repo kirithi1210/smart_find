@@ -3,7 +3,8 @@ import requests
 from PIL import Image
 
 # API Endpoint Configuration
-API_URL = "http://127.0.0.1:8000"
+# API Endpoint Configuration
+API_URL = "https://smart-find.onrender.com"
 
 st.set_page_config(
     page_title="SmartFind - Multimodal Lost & Found",
