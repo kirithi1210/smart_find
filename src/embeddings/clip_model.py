@@ -35,5 +35,17 @@ class CLIPEmbedder:
             image_features /= image_features.norm(dim=-1, keepdim=True)
         return image_features.cpu().numpy()[0].tolist()
 
+    def get_multimodal_embedding(self, text: str, image_input: Union[str, Image.Image]) -> List[float]:
+        """Combines image and text into a single embedding vector."""
+        # Get individual embeddings as tensors
+        text_features = torch.tensor(self.get_text_embedding(text))
+        image_features = torch.tensor(self.get_image_embedding(image_input))
+        
+        # Average the features and re-normalize
+        combined_features = (text_features + image_features) / 2.0
+        combined_features /= combined_features.norm(dim=-1, keepdim=True)
+        
+        return combined_features.tolist()
+
 # Singleton instance
 clip_embedder = CLIPEmbedder()
