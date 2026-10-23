@@ -17,7 +17,7 @@ RUN apt-get update -o Acquire::Retries=5 && \
 COPY requirements.txt .
 
 # Install CPU-only PyTorch first to save memory
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
 
 # Install remaining dependencies (including CLIP from GitHub)
 RUN pip install --no-cache-dir -r requirements.txt

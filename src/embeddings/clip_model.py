@@ -1,51 +1,60 @@
-import torch
-import clip
+import os
+import io
+import base64
+import requests
 from PIL import Image
 from typing import List, Union
 
 class CLIPEmbedder:
     def __init__(self):
-        self.model = None
-        self.preprocess = None
-        self.device = "cpu"
+        self.api_key = os.getenv("JINA_API_KEY")
+        self.url = "https://api.jina.ai/v1/embeddings"
+        self.headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
 
-    def _load_model(self):
-        if self.model is None:
-            # Loads model into memory only when inference is requested
-            self.model, self.preprocess = clip.load("ViT-B/32", device=self.device)
+    def _get_embedding(self, input_data: dict) -> List[float]:
+        payload = {
+            "model": "jina-clip-v1",
+            "normalized": True,
+            "embedding_type": "float",
+            "input": [input_data]
+        }
+        response = requests.post(self.url, headers=self.headers, json=payload)
+        
+        if response.status_code != 200:
+            raise Exception(f"Vector API Error: {response.text}")
+            
+        return response.json()["data"][0]["embedding"]
 
     def get_text_embedding(self, text: str) -> List[float]:
-        self._load_model()
-        text_inputs = clip.tokenize([text]).to(self.device)
-        with torch.no-grad():
-            text_features = self.model.encode_text(text_inputs)
-            text_features /= text_features.norm(dim=-1, keepdim=True)
-        return text_features.cpu().numpy()[0].tolist()
+        return self._get_embedding({"text": text})
 
     def get_image_embedding(self, image_input: Union[str, Image.Image]) -> List[float]:
-        self._load_model()
         if isinstance(image_input, str):
-            image = Image.open(image_input).convert("RGB")
+            image = Image.open(image_input)
         else:
-            image = image_input.convert("RGB")
-            
-        image_tensor = self.preprocess(image).unsqueeze(0).to(self.device)
-        with torch.no-grad():
-            image_features = self.model.encode_image(image_tensor)
-            image_features /= image_features.norm(dim=-1, keepdim=True)
-        return image_features.cpu().numpy()[0].tolist()
+            image = image_input
+
+        # Convert image to base64 string for API transfer
+        image = image.convert("RGB")
+        buf = io.BytesIO()
+        image.save(buf, format="JPEG")
+        base64_str = base64.b64encode(buf.getvalue()).decode("utf-8")
+        
+        return self._get_embedding({"image": f"data:image/jpeg;base64,{base64_str}"})
 
     def get_multimodal_embedding(self, text: str, image_input: Union[str, Image.Image]) -> List[float]:
-        """Combines image and text into a single embedding vector."""
-        # Get individual embeddings as tensors
-        text_features = torch.tensor(self.get_text_embedding(text))
-        image_features = torch.tensor(self.get_image_embedding(image_input))
+        text_vec = self.get_text_embedding(text)
+        image_vec = self.get_image_embedding(image_input)
         
-        # Average the features and re-normalize
-        combined_features = (text_features + image_features) / 2.0
-        combined_features /= combined_features.norm(dim=-1, keepdim=True)
+        # Average the features to create a single multimodal vector
+        combined = [(t + i) / 2.0 for t, i in zip(text_vec, image_vec)]
         
-        return combined_features.tolist()
+        # Re-normalize the combined vector
+        magnitude = sum(x**2 for x in combined) ** 0.5
+        return [x / magnitude for x in combined]
 
 # Singleton instance
 clip_embedder = CLIPEmbedder()
