@@ -4,6 +4,7 @@ from PIL import Image
 
 # API Endpoint Configuration
 # API Endpoint Configuration
+# API Endpoint Configuration
 API_URL = "https://smart-find.onrender.com"
 
 st.set_page_config(
