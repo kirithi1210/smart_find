@@ -1,9 +1,10 @@
+import os
 import mlflow
-import time
-from typing import Dict, Any, List
 
-# Set tracking URI and experiment name
-mlflow.set_tracking_uri("http://127.0.0.1:5000")
+# Use a local directory for Render, or read from .env for local development
+TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "file:///app/mlruns")
+mlflow.set_tracking_uri(TRACKING_URI)
+
 mlflow.set_experiment("smartfind_embeddings_and_matching")
 
 def log_inference_event(
